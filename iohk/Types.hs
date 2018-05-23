@@ -136,6 +136,7 @@ data Environment
   | Benchmark
   | Production
   | Staging
+  | Testnet
   | Development
   deriving (Bounded, Eq, Enum, Generic, Read, Show)
 instance FromJSON Environment
