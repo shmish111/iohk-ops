@@ -28,7 +28,7 @@ import Data.List (find)
 import NixOps ( Options, NixopsConfig(..)
               , nixopsConfigurationKey, configurationKeys
               , getCardanoSLConfig )
-import Types ( NixopsDepl(..), Environment(..), Arch(..) )
+import Types ( NixopsDepl(..), Environment(..), Arch(..), GPGFinger(..) )
 import UpdateLogic ( InstallersResults(..), CIResult(..)
                    , realFindInstallers, githubWikiRecord
                    , runAWS', uploadHashedInstaller, updateVersionJson
@@ -51,8 +51,6 @@ data UpdateProposalStep
     }
   | UpdateProposalFindInstallers
   | UpdateProposalSignInstallers
-    { updateProposalGPGUserId         :: Text
-    }
   | UpdateProposalUploadS3
   | UpdateProposalSetVersionJSON
   | UpdateProposalGenerate
@@ -71,7 +69,7 @@ parseUpdateProposalCommand = subparser $
        (info ((UpdateProposalCommand <$> date <*> pure UpdateProposalFindInstallers) <**> helper)
          (progDesc "Download installer files from the Daedalus build.") ) )
   <> ( command "sign-installers"
-       (info ((UpdateProposalCommand <$> date <*> (UpdateProposalSignInstallers <$> userId)) <**> helper)
+       (info ((UpdateProposalCommand <$> date <*> pure UpdateProposalSignInstallers) <**> helper)
          (progDesc "Sign installer files with GPG.") ) )
   <> ( command "upload-s3"
        (info ((UpdateProposalCommand <$> date <*> pure UpdateProposalUploadS3) <**> helper)
@@ -109,11 +107,6 @@ parseUpdateProposalCommand = subparser $
                long "from" <> short 'f' <> metavar "DATE"
                <> help "Copy the previous config from date"
 
-    userId :: Parser Text
-    userId = fmap T.pack $ strOption $
-             long "local-user" <> short 'u' <> metavar "USER-ID"
-             <> help "use USER-ID to sign"
-
     relayIP :: Parser Text
     relayIP = fmap T.pack $ strOption $
               long "relay-ip" <> short 'r' <> metavar "ADDR"
@@ -132,7 +125,7 @@ updateProposal o cfg UpdateProposalCommand{..} = do
   sh $ case updateProposalStep of
     UpdateProposalInit initial -> updateProposalInit top uid (first (UpdateID (cName cfg)) initial)
     UpdateProposalFindInstallers -> updateProposalFindInstallers opts (cEnvironment cfg)
-    UpdateProposalSignInstallers userId -> updateProposalSignInstallers opts userId
+    UpdateProposalSignInstallers -> updateProposalSignInstallers opts (cSigningFinger cfg)
     UpdateProposalUploadS3 -> updateProposalUploadS3 cfg opts
     UpdateProposalSetVersionJSON -> updateProposalSetVersionJSON cfg opts
     UpdateProposalGenerate -> updateProposalGenerate opts
@@ -439,13 +432,15 @@ writeWikiRecord opts res = do
 -- | Step 2a. (Optional) Sign installers with GPG. This will leave
 -- .asc files next to the installers which will be picked up in the
 -- upload S3 step.
-updateProposalSignInstallers :: CommandOptions -> Text -> Shell ()
-updateProposalSignInstallers opts@CommandOptions{..} userId = do
+updateProposalSignInstallers :: CommandOptions -> GPGFinger -> Shell ()
+updateProposalSignInstallers opts@CommandOptions{..} signingFinger = do
   params <- loadParams opts
   void $ doCheckConfig params
+  printf ("*** Signing installers with GPG subkey "%s%"\n") (fromGPGFinger signingFinger)
   mapM_ signInstaller (map ciResultLocalPath . ciResults . cfgInstallersResults $ params)
   where
-    signInstaller f = procs "gpg2" ["-u", userId, "--detach-sig", "--armor", "--sign", tt f] empty
+    -- XXX: this hard-codes the GPG keybox location to 'signing-keybox'.
+    signInstaller f = procs "gpg" ["--default-key", fromGPGFinger signingFinger, "--armor", "--detach-sign", tt f] empty
 
 ----------------------------------------------------------------------------
 
