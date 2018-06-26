@@ -8,6 +8,7 @@ config.yaml
 
 .stack-work
 /cardano-sl/
+/cardano-sl-tools/
 ec2-image/
 experiments/
 image/
@@ -19,7 +20,7 @@ logs-analyze/
 
 static/*.secret
 static/github_token
-static/buildkite_token
+static/buildkite-token
 static/id_buildfarm
 github_token
 
