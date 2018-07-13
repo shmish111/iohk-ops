@@ -29,7 +29,6 @@ in {
       fi
     '';
     hooks.environment = ''
-      export NIX_REMOTE=daemon
       export NIX_BUILD_SHELL="/run/current-system/sw/bin/bash"
       # /usr/bin and /usr/sbin are added For iconutil, security, pkgutil, etc.
       # Required for daedalus installer build,
