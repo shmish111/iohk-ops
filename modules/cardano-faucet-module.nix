@@ -259,7 +259,7 @@ in {
             # fixme: faucet ekg currently hardcoded to 127.0.0.1:8001
           ekgArgs = optionalString (faucetEkgPort != null)
             "--ekg-server 127.0.0.1:${toString faucetEkgPort}";
-          in "${faucetPackage}/bin/faucet --config ${cfgFile} ${metricsArgs}";
+          in "${faucetPackage}/bin/cardano-faucet --config ${cfgFile} ${metricsArgs}";
         };
       };
     };
