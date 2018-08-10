@@ -3,6 +3,7 @@
 with lib;
 
 let
+  hydraDnsName = "mantis-hydra.aws.iohkdev.io";
 in {
 
   nix = {
@@ -21,13 +22,13 @@ in {
   virtualisation.docker.enable = true;
 
   services.hydra = {
-    hydraURL = "https://hydra-mantis.iohk.io";
+    hydraURL = "https://${hydraDnsName}";
     # max output is 4GB because of amis
     # auth token needs `repo:status`
     extraConfig = ''
       max_output_size = 4294967296
-      store-uri = file:///nix/store?secret-key=/etc/nix/hydra.iohk.io-1/secret
-      binary_cache_secret_key_file = /etc/nix/hydra.iohk.io-1/secret
+      store-uri = file:///nix/store?secret-key=/etc/nix/${hydraDnsName}-1/secret
+      binary_cache_secret_key_file = /etc/nix/${hydraDnsName}-1/secret
       <github_authorization>
         input-output-hk = ${builtins.readFile ../static/github_token}
       </github_authorization>
@@ -35,7 +36,7 @@ in {
   };
 
   security.acme.certs = {
-    "hydra-mantis.iohk.io" = {
+    "${hydraDnsName}" = {
       email = "info@iohk.io";
       user = "nginx";
       group = "nginx";
@@ -59,7 +60,7 @@ in {
         listen 80;
         listen [::]:80;
         location /.well-known/acme-challenge {
-          root ${config.security.acme.certs."hydra-mantis.iohk.io".webroot};
+          root ${config.security.acme.certs."${hydraDnsName}".webroot};
         }
         location / {
           return 301 https://$host$request_uri;
@@ -68,10 +69,10 @@ in {
 
       server {
         listen 443 ssl spdy;
-        server_name hydra-mantis.iohk.io;
+        server_name ${hydraDnsName};
 
-        ssl_certificate /var/lib/acme/hydra.iohk.io/fullchain.pem;
-        ssl_certificate_key /var/lib/acme/hydra.iohk.io/key.pem;
+        ssl_certificate /var/lib/acme/${hydraDnsName}/fullchain.pem;
+        ssl_certificate_key /var/lib/acme/${hydraDnsName}/key.pem;
 
         location / {
           proxy_pass http://127.0.0.1:8080;
